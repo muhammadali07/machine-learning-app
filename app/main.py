@@ -10,6 +10,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+import pickle
 
 
 # Inisialisasi Firebase
@@ -111,8 +112,12 @@ def read_csv_file(file_path: str):
     try:
         # Membaca file CSV
         data = pd.read_csv(file_path)
+        label = data["NObeyesdad"].unique().tolist()
+
+
+
         print(f"Dataset berhasil dibaca. Jumlah baris: {len(data)}, Jumlah kolom: {len(data.columns)}")
-        return data
+        return data, label
     except FileNotFoundError:
         print(f"File tidak ditemukan di lokasi: {file_path}")
     except pd.errors.EmptyDataError:
@@ -121,46 +126,6 @@ def read_csv_file(file_path: str):
         print(f"Terjadi kesalahan saat memparsing file CSV: {e}")
     except Exception as e:
         print(f"Terjadi kesalahan: {e}")
-
-
-def compare_numpy_prediction_with_dataset(predicted_array: np.ndarray, dataset: pd.DataFrame, threshold: float = 0.9):
-    """
-    Membandingkan hasil prediksi numpy array dengan dataset untuk mencari kemiripan.
-
-    Parameters:
-        predicted_array (np.ndarray): Array hasil prediksi.
-        dataset (pd.DataFrame): Dataset dalam bentuk DataFrame.
-        threshold (float): Ambang batas kemiripan (0-1), default adalah 0.9.
-
-    Returns:
-        list: Daftar indeks baris dalam dataset yang mirip dengan data prediksi.
-    """
-    if len(predicted_array) != dataset.shape[1]:
-        raise ValueError("Panjang array prediksi tidak sesuai dengan jumlah kolom dataset.")
-
-    similar_rows = []
-    for index, row in dataset.iterrows():
-        similarity_score = 0
-        for i, pred_value in enumerate(predicted_array):
-            dataset_value = row[i]
-            # Perbandingan data numerik dengan toleransi
-            if isinstance(dataset_value, (int, float)) and isinstance(pred_value, (int, float)):
-                diff = abs(dataset_value - pred_value)
-                if diff <= threshold * max(abs(dataset_value), abs(pred_value), 1):  # Toleransi threshold
-                    similarity_score += 1
-            # Perbandingan data string
-            elif isinstance(dataset_value, str) and isinstance(pred_value, str):
-                if dataset_value.lower() == pred_value.lower():
-                    similarity_score += 1
-
-        # Hitung skor kemiripan sebagai persentase
-        score_percentage = similarity_score / len(predicted_array)
-        if score_percentage >= threshold:
-            similar_rows.append((index, score_percentage))
-
-    if not similar_rows:
-        print("Tidak ada data dalam dataset yang mirip dengan data prediksi.")
-    return similar_rows
 
 # ------------------- Endpoints ------------------- #
 
@@ -211,21 +176,10 @@ async def predict(input_data: InputModel):
 
     # Get prediction
     prediction = model.predict(input_array)
-    datasetPath = "dataset/ObesityDataSet_raw_and_data_sinthetic.csv"
-    dataset = read_csv_file(datasetPath)
+    res = np.array(prediction[0]).argmax()
+    resList = pickle.load(open("./dataset/label.pkl", "rb"))
 
-    similar_rows = compare_numpy_prediction_with_dataset(prediction, dataset, threshold=0.8)
-    if similar_rows:
-        print("Baris yang mirip ditemukan:")
-        for index, score in similar_rows:
-            print(f"Indeks: {index}, Skor Kemiripan: {score:.2f}")
-    print("tipe data hasil model")
-    print(type(prediction))
-
-
-    result = prediction[0][0]  # Assuming binary classification
-
-    return {"prediction": "Overweight" if result > 0.5 else "Not Overweight"}
+    return {"prediction": resList[res]}
 
 
 @app.get("/secure-endpoint/")
