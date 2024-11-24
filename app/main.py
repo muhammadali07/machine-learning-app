@@ -1,35 +1,33 @@
-from fastapi import FastAPI, Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
-import jwt
-from jwt import PyJWTError
-from datetime import datetime, timedelta
-from typing import Optional
-from firebase_admin import credentials, firestore, initialize_app
+from fastapi import FastAPI, Depends, HTTPException
+from schema import User, InputModel, Login
+from helpers import (
+    JWTBearer, create_jwt_token, 
+    decode_jwt, configure_firebase,
+    get_current_active_user
+)
+
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 import pickle
 
 
+
+# service_account_path
+service_account_path = "./helpers/serviceAccountKey.json"
+
 # Inisialisasi Firebase
-cred = credentials.Certificate("serviceAccountKey.json")
+db = None
+try:
+    db = configure_firebase(service_account_path)
+    db = db.collection("users")
+except Exception as e:
+    print(f"Gagal menginisialisasi Firebase: {e}")
+    db = None
 
-import os
 
-print(os.path.exists("serviceAccountKey.json"))
-
-
-initialize_app(cred)
-db = firestore.client()
-user_ref = db.collection('users')
-
-# Konfigurasi JWT
-# Konfigurasi JWT
-SECRET_KEY = "your_jwt_secret_key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Dependency Instance
+jwt_bearer = JWTBearer()
 
 # Inisialisasi FastAPI
 app = FastAPI()
@@ -37,113 +35,31 @@ app = FastAPI()
 # Load TensorFlow Model
 model = tf.keras.models.load_model("model/obesity_prediction_model.h5")
 
-
-# ------------------- Models ------------------- #
-class User(BaseModel):
-    username: str
-    password: str
-
-
-class InputModel(BaseModel):
-    gender: str
-    age: float
-    height: float
-    weight: float
-    family_history: int
-    high_calorie_food: int
-    vegetable_freq: int
-    meals_per_day: float
-    food_between_meals: str
-    smoking: int
-    water_consumption: float
-    calorie_monitoring: int
-    physical_activity: float
-    tech_usage: int
-    alcohol_consumption: str
-    transportation: str
-
-
-# ------------------- Auth Utils ------------------- #
-# Helper: Membuat token JWT
-def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-# Dependency: Validasi token JWT
-class JWTBearer(HTTPBearer):
-    def __init__(self, auto_error: bool = True):
-        super().__init__(auto_error=auto_error)
-
-    async def __call__(self, credentials: HTTPAuthorizationCredentials = Depends()):
-        if not credentials:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Credentials not provided"
-            )
-        try:
-            payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        except PyJWTError:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token"
-            )
-        return payload
-
-# Dependency Instance
-jwt_bearer = JWTBearer()
-
-
-# read dataset
-def read_csv_file(file_path: str):
-    """
-    Membaca file dataset CSV dan mengembalikan DataFrame.
-
-    Parameters:
-        file_path (str): Path ke file CSV.
-
-    Returns:
-        pd.DataFrame: Data dari file CSV dalam bentuk DataFrame.
-    """
-    try:
-        # Membaca file CSV
-        data = pd.read_csv(file_path)
-        label = data["NObeyesdad"].unique().tolist()
-
-
-
-        print(f"Dataset berhasil dibaca. Jumlah baris: {len(data)}, Jumlah kolom: {len(data.columns)}")
-        return data, label
-    except FileNotFoundError:
-        print(f"File tidak ditemukan di lokasi: {file_path}")
-    except pd.errors.EmptyDataError:
-        print("File CSV kosong.")
-    except pd.errors.ParserError as e:
-        print(f"Terjadi kesalahan saat memparsing file CSV: {e}")
-    except Exception as e:
-        print(f"Terjadi kesalahan: {e}")
-
 # ------------------- Endpoints ------------------- #
 
-@app.post("/create-user/")
+@app.post("/auth/register")
 async def create_user(user: User):
     # Check if user exists
-    if user_ref.document(user.username).get().exists:
+    if db.document(user.username).get().exists:
         raise HTTPException(status_code=400, detail="Username already exists")
 
     # Add user to Firebase
-    user_ref.document(user.username).set({"password": user.password})
+    db.document(user.username).set({
+        "username": user.username,
+        "password": user.password,
+        "email": user.email,
+        "age": user.age,
+        "gender": user.gender,
+        "height": user.height,
+        "weight": user.weight
+    })
     return {"message": "User created successfully"}
 
 
-@app.post("/login/")
-async def login(user: User):
+@app.post("/auth/login")
+async def login(user: Login):
     # Check credentials
-    user_data = user_ref.document(user.username).get()
+    user_data = db.document(user.username).get()
     if not user_data.exists or user_data.to_dict().get("password") != user.password:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
@@ -151,8 +67,72 @@ async def login(user: User):
     token = create_jwt_token({"sub": user.username})
     return {"access_token": token, "token_type": "bearer"}
 
+@app.get("/users/list")
+async def get_users(
+    token: str = Depends(jwt_bearer),
+):
+    try:
+        users = db.stream()
+        # Konversi setiap dokumen ke dictionary
+        all_users = [user.to_dict() for user in users]
 
-@app.post("/predict/")
+        if not all_users:
+            raise HTTPException(status_code=404, detail="Tidak ada data pengguna yang ditemukan.")
+
+        return {"users": all_users}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kesalahan server: {e}")
+
+    
+
+@app.get("/profile")
+async def get_profile(
+    token: str = Depends(jwt_bearer),
+    current_user: dict = Depends(get_current_active_user)
+    ):
+    """
+    Mendapatkan profil pengguna berdasarkan JWT token.
+    """
+    email = current_user.get('sub')
+    try:
+        # Ambil data pengguna dari Firestore
+        user_doc = db.document(email).get()
+
+        if not user_doc.exists:
+            raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+        return user_doc.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kesalahan server: {e}")
+
+
+@app.put("/profile")
+async def update_profile(
+    profile: User, 
+    token: str = Depends(jwt_bearer),
+    current_user: dict = Depends(get_current_active_user)
+    ):
+    """
+    Memperbarui profil pengguna berdasarkan JWT token.
+    """
+    email = current_user.get('sub')
+    try:
+        # Perbarui data pengguna di Firestore
+        user_ref = db.document(email)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan.")
+
+        # Perbarui data pengguna
+        user_ref.update(profile.dict())
+        return {"message": "Profil berhasil diperbarui."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kesalahan server: {e}")
+
+
+@app.post("/predict/", dependencies=[Depends(JWTBearer())])
 async def predict(input_data: InputModel):
     # Prepare input for the TensorFlow model
     input_array = np.array([[
