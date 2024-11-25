@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Request, HTTPException, Depends
 from typing import Optional
+from urllib.parse import urlparse, parse_qs
 
 
 # ------------------- Auth Utils ------------------- #
