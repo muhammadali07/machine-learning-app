@@ -148,7 +148,7 @@ This project is licensed under the MIT License. See the [LICENSE] file for detai
 ## 📞 **Contact**
 For questions or support:
 
-Email: [muhalibakhtiar@gmail.com}
+Email: [muhalibakhtiar@gmail.com]
 GitHub: [Muhammad Ali](https://github.com/muhammadali07)
 
 
