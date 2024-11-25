@@ -68,11 +68,15 @@ GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
 ### **6. Create a .env File**
 Set environment variables in .env:
 ```bash
-SECRET_KEY=<your-secret-key>
-FIREBASE_DATABASE_URL=https://<your-firebase-database>.firebaseio.com
-GOOGLE_CLIENT_ID=<your-google-client-id>
-GOOGLE_CLIENT_SECRET=<your-google-client-secret>
-GOOGLE_REDIRECT_URI=http://localhost:8000/auth/callback
+GOOGLE_CLIENT_ID = <your-google-client-id>
+GOOGLE_CLIENT_SECRET = <your-google-client-secret>
+GOOGLE_REDIRECT_URI = "http://localhost:8000" -> or your preference host another app
+
+# Constants for Google OAuth
+GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URI = "https://www.googleapis.com/oauth2/v1/userinfo"
+
 ```
 
 ### **7. Run the Application**
