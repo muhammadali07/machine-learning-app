@@ -1,6 +1,7 @@
-env*.env
+*.env
 env
 app/helpers/serviceAccountKey.json
 __pycache__
 .DS_Store
 .idea
+app/.env
