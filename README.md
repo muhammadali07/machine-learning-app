@@ -37,3 +37,22 @@ Ensure you have the following installed:
 ```bash
 git clone https://github.com/your-username/machine-learning-app.git
 cd machine-learning-app
+
+
+### **2. Create a Virtual Environment**
+```bash
+pyenv install 3.9.17  # Replace with your Python version
+pyenv virtualenv 3.9.17 machine-learning-app-env
+pyenv activate machine-learning-app-env
+
+
+### **3. Install Dependencies**
+```bash
+pip install -r requirements.txt
+
+### **4. Configure Firebase**
+1. Create a Firebase project via the [Firebase Console].()
+2. Download the serviceAccountKey.json and place it in the project root directory.
+3. Add your Firebase database URL to the .env file.
+
+
