@@ -116,7 +116,7 @@ Sample Payload:
 }
 ```
 
-###🧑‍💼 **User Profile**
+### 🧑‍💼 **User Profile**
 - GET /profile: Retrieve user profiles.
 - PUT /profile/update: Update a user profile.
 
