@@ -82,7 +82,7 @@ GOOGLE_USERINFO_URI = "https://www.googleapis.com/oauth2/v1/userinfo"
 ### **7. Run the Application**
 Start the FastAPI development server:
 ```bash
-uvicorn main:app --reload
+fastapi dev main.py
 ```
 
 ## 📊 **Usage**
