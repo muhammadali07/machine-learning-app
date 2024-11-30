@@ -31,3 +31,8 @@ class InputModel(BaseModel):
     tech_usage: int
     alcohol_consumption: str
     transportation: str
+
+
+class NutritionAnalyzeRequest(BaseModel):
+    food_name: str
+    serving_size: float

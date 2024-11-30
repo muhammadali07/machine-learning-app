@@ -1,18 +1,19 @@
 import firebase_admin
 
 from firebase_admin import credentials, firestore, initialize_app
+#
+# def firebaseconfig(username):
+#     # Inisialisasi Firebase
+#     cred = credentials.Certificate("serviceAccountKey.json")
+#
+#
+#     initialize_app(cred)
+#     db = firestore.client()
+#     user_ref = db.collection('users')
+#     return user_ref.document
 
-def firebaseconfig(username):
-    # Inisialisasi Firebase
-    cred = credentials.Certificate("serviceAccountKey.json")
-
-
-    initialize_app(cred)
-    db = firestore.client()
-    user_ref = db.collection('users')
-    return user_ref.document
-
-def configure_firebase(service_account_path: str):
+def configure_firebase():
+    service_account_path = "./helpers/serviceAccountKey.json"
     """
     Konfigurasi Firebase menggunakan service account JSON.
 
@@ -33,7 +34,8 @@ def configure_firebase(service_account_path: str):
         # Inisialisasi Firestore
         db = firestore.client()
         print("Firebase Firestore berhasil dikonfigurasi.")
-        return db
+        dsn = db.collection("users")
+        return dsn
 
     except Exception as e:
         print(f"Terjadi kesalahan saat konfigurasi Firebase: {e}")
